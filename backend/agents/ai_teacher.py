@@ -3,13 +3,13 @@ import openai
 import json
 import logging
 from datetime import datetime
-from backend.models.schemas import (
+from ..models.schemas import (
     ChatMessage,
     SessionSummary,
     StudentProfile,
     LessonSession,
 )
-from backend.config import settings
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 

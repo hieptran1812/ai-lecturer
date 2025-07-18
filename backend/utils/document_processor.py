@@ -5,26 +5,49 @@ from typing import Dict, Any, Optional
 import logging
 import io
 
+from backend.utils.enhanced_document_processor import EnhancedDocumentProcessor
+
 logger = logging.getLogger(__name__)
 
 
 class DocumentProcessor:
-    def __init__(self):
+    """
+    Legacy document processor - now wraps EnhancedDocumentProcessor for backward compatibility
+    """
+    def __init__(self, config: Dict[str, Any] = None):
         """
-        Initialize document processor
+        Initialize document processor with enhanced backend
+        
+        Args:
+            config: Configuration dictionary for document processing
         """
+        # Initialize enhanced processor with configuration
+        processor_config = config or {}
+        
+        # Add default configuration for enhanced features
+        processor_config.setdefault('docling', {
+            'enable_ocr': True,
+            'enable_table_extraction': True
+        })
+        
+        self.enhanced_processor = EnhancedDocumentProcessor(processor_config)
+        
+        # Keep legacy supported types for backward compatibility
         self.supported_types = {
             "application/pdf": self._process_pdf,
             "text/plain": self._process_text,
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": self._process_docx,
             "text/markdown": self._process_markdown,
         }
+        
+        logger.info("Document processor initialized with enhanced backend")
 
     async def process_file(
         self, filename: str, content: bytes, file_type: str
     ) -> Dict[str, Any]:
         """
         Process uploaded file and extract text content
+        Now uses enhanced processor with Docling support
 
         Args:
             filename: Name of the uploaded file
@@ -35,31 +58,36 @@ class DocumentProcessor:
             Dictionary with processed document information
         """
         try:
-            document_id = str(uuid.uuid4())
-
-            # Process based on file type
-            if file_type in self.supported_types:
-                processor_method = self.supported_types[file_type]
-                text_content = await processor_method(content)
-            else:
-                # Fallback to treating as text
-                text_content = content.decode("utf-8", errors="ignore")
-
-            # Clean and prepare content
-            cleaned_content = self._clean_text(text_content)
-
-            return {
-                "document_id": document_id,
-                "filename": filename,
-                "content": cleaned_content,
-                "type": file_type,
-                "word_count": len(cleaned_content.split()),
-                "character_count": len(cleaned_content),
+            # Use enhanced processor for better document handling
+            result = await self.enhanced_processor.process_file(
+                filename=filename,
+                content=content,
+                file_type=file_type,
+                options={'extract_topics': True}
+            )
+            
+            # Transform result to match legacy format for backward compatibility
+            legacy_result = {
+                'document_id': result['document_id'],
+                'filename': result['filename'],
+                'content': result['content'],
+                'type': result['type'],
+                'word_count': result['metadata'].get('word_count', 0),
+                'character_count': result['metadata'].get('character_count', 0),
+                # Add enhanced features
+                'metadata': result['metadata'],
+                'structure': result.get('structure'),
+                'tables': result.get('tables', []),
+                'images': result.get('images', []),
+                'key_topics': result.get('key_topics', []),
+                'processing_info': result.get('processing_info', {})
             }
+            
+            return legacy_result
 
         except Exception as e:
-            logger.error(f"Document processing error: {str(e)}", exc_info=True)
-            raise Exception(f"Failed to process document: {str(e)}")
+            logger.error("Document processing error: %s", str(e), exc_info=True)
+            raise Exception(f"Failed to process document: {str(e)}") from e
 
     async def _process_pdf(self, content: bytes) -> str:
         """

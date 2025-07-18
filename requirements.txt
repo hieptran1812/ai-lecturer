@@ -27,6 +27,7 @@ requests==2.31.0
 # Document Processing
 PyPDF2==3.0.1
 python-docx==0.8.11
+docling
 
 # Optional packages (remove if causing conflicts)
 # python-jose[cryptography]==3.3.0

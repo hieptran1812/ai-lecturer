@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from datetime import datetime
 import logging
 
-from backend.models.schemas import LessonSession, StudentProfile, ChatMessage
+from ..models.schemas import LessonSession, StudentProfile, ChatMessage
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,10 @@ class SessionManager:
             return session
 
         except Exception as e:
-            logger.error(f"Session creation error: {str(e)}")
+            logger.error(f"Session creation error: {str(e)}", exc_info=True)
+            logger.debug(
+                f"Session creation failed for document_id: {document_id}, student_id: {student_profile.student_id}"
+            )
             raise Exception(f"Failed to create session: {str(e)}")
 
     def get_session(self, session_id: str) -> Optional[LessonSession]:

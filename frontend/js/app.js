@@ -142,6 +142,20 @@ class AITeacherApp {
 
     docName.textContent = file.name;
     docSize.textContent = this.formatFileSize(file.size);
+    
+    // Add analyze button
+    const analyzeBtn = document.createElement("button");
+    analyzeBtn.className = "btn-secondary btn-full";
+    analyzeBtn.innerHTML = "🔍 Analyze Document";
+    analyzeBtn.style.marginBottom = "10px";
+    analyzeBtn.onclick = () => this.analyzeDocument(file);
+    
+    // Insert analyze button before start lesson button
+    const startLessonBtn = document.getElementById("startLessonBtn");
+    startLessonBtn.parentNode.insertBefore(analyzeBtn, startLessonBtn);
+    
+    // Initially hide start lesson button
+    startLessonBtn.style.display = "none";
   }
 
   removeDocument() {
@@ -495,6 +509,187 @@ class AITeacherApp {
       '<div class="empty-state"><i class="fas fa-book-open"></i><p>Vocabulary will appear here during the lesson</p></div>';
     document.getElementById("grammarList").innerHTML =
       '<div class="empty-state"><i class="fas fa-lightbulb"></i><p>Grammar notes will appear here during the lesson</p></div>';
+  }
+
+  // Enhanced Document Processing
+  async analyzeDocument(file) {
+    try {
+      this.showLoading("Analyzing document with enhanced features...");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(`${this.apiUrl}/api/documents/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Document analysis failed");
+      }
+
+      const result = await response.json();
+      this.showAnalysisResults(result);
+      this.hideLoading();
+      
+      return result;
+    } catch (error) {
+      console.error("Document analysis error:", error);
+      this.showError("Failed to analyze document. Please try again.");
+      this.hideLoading();
+      return null;
+    }
+  }
+
+  showAnalysisResults(analysis) {
+    // Create analysis display
+    const analysisContainer = document.createElement("div");
+    analysisContainer.className = "analysis-results";
+    
+    const processingInfo = analysis.analysis.processing_info;
+    const parserUsed = processingInfo.parser_used === 'docling' ? 'Advanced (Docling)' : 'Basic';
+    
+    analysisContainer.innerHTML = `
+      <div class="analysis-header">
+        <h4>📊 Document Analysis Results</h4>
+        <span class="parser-badge">${parserUsed}</span>
+      </div>
+      
+      <div class="analysis-stats">
+        <div class="stat-item">
+          <span class="stat-label">Pages:</span>
+          <span class="stat-value">${analysis.analysis.metadata.page_count || 'N/A'}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Words:</span>
+          <span class="stat-value">${analysis.analysis.metadata.word_count || 0}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Tables:</span>
+          <span class="stat-value">${analysis.analysis.tables_count || 0}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Images:</span>
+          <span class="stat-value">${analysis.analysis.images_count || 0}</span>
+        </div>
+      </div>
+      
+      ${analysis.analysis.key_topics && analysis.analysis.key_topics.length > 0 ? `
+        <div class="key-topics">
+          <h5>🏷️ Key Topics:</h5>
+          <div class="topic-tags">
+            ${analysis.analysis.key_topics.slice(0, 8).map(topic => 
+              `<span class="topic-tag">${topic}</span>`
+            ).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${analysis.analysis.summary ? `
+        <div class="document-summary">
+          <h5>📝 Summary:</h5>
+          <p>${analysis.analysis.summary}</p>
+        </div>
+      ` : ''}
+      
+      ${analysis.analysis.structure && analysis.analysis.structure.headings ? `
+        <div class="document-structure">
+          <h5>📋 Document Structure:</h5>
+          <ul class="headings-list">
+            ${analysis.analysis.structure.headings.slice(0, 5).map(heading => 
+              `<li class="heading-item level-${heading.level}">${heading.text}</li>`
+            ).join('')}
+          </ul>
+        </div>
+      ` : ''}
+      
+      <div class="analysis-actions">
+        <button class="btn-primary" onclick="app.proceedWithDocument()">
+          📚 Start Lesson with This Document
+        </button>
+        <button class="btn-secondary" onclick="app.showFullAnalysis()">
+          🔍 View Full Analysis
+        </button>
+      </div>
+    `;
+    
+    // Insert after uploaded document info
+    const uploadedDoc = document.getElementById("uploadedDoc");
+    if (uploadedDoc) {
+      uploadedDoc.appendChild(analysisContainer);
+    }
+  }
+
+  proceedWithDocument() {
+    // Hide analysis and show lesson start button
+    const analysisResults = document.querySelector('.analysis-results');
+    if (analysisResults) {
+      analysisResults.style.display = 'none';
+    }
+    
+    // Show start lesson button
+    const startLessonBtn = document.getElementById('startLessonBtn');
+    if (startLessonBtn) {
+      startLessonBtn.style.display = 'block';
+    }
+  }
+
+  showFullAnalysis() {
+    if (!this.currentDocument) return;
+    
+    // Create modal for full analysis
+    const modal = document.createElement('div');
+    modal.className = 'analysis-modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>📊 Full Document Analysis</h3>
+          <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="analysis-details">
+            <h4>📋 Processing Information</h4>
+            <pre>${JSON.stringify(this.currentDocument.analysis.processing_info, null, 2)}</pre>
+            
+            <h4>📄 Metadata</h4>
+            <pre>${JSON.stringify(this.currentDocument.analysis.metadata, null, 2)}</pre>
+            
+            ${this.currentDocument.analysis.structure ? `
+              <h4>🏗️ Document Structure</h4>
+              <pre>${JSON.stringify(this.currentDocument.analysis.structure, null, 2)}</pre>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal event
+    modal.querySelector('.close-modal').addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+
+  async getProcessingInfo() {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/documents/info`);
+      if (response.ok) {
+        const info = await response.json();
+        console.log("Document processing capabilities:", info);
+        return info;
+      }
+    } catch (error) {
+      console.error("Failed to get processing info:", error);
+    }
+    return null;
   }
 
   // WebSocket connection (will be implemented in websocket.js)

@@ -15,9 +15,9 @@ source venv/bin/activate
 echo "Upgrading pip..."
 pip install --upgrade pip
 
-# Install full dependencies
-echo "Installing full dependencies..."
-pip install -r requirements.txt
+# # Install full dependencies
+# echo "Installing full dependencies..."
+# pip install -r requirements.txt
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
@@ -27,10 +27,9 @@ if [ ! -f ".env" ]; then
     echo "⚠️  Without API key, the AI features will not work properly"
 fi
 
-# Start simple backend server
-echo "🚀 Starting simple backend server..."
-cd backend
-python main.py &
+# Start backend server
+echo "🚀 Starting backend server..."
+python backend/main.py &
 BACKEND_PID=$!
 
 # Wait for backend to start
@@ -47,7 +46,7 @@ fi
 
 # Start frontend server
 echo "🌐 Starting frontend server..."
-cd ../frontend
+cd frontend
 python3 -m http.server 8080 &
 FRONTEND_PID=$!
 
